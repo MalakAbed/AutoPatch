@@ -1,1 +1,1 @@
-console.log("Hello AutoPatch!");
+console.log("Hello AutoPatch! v2");
