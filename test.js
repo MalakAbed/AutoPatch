@@ -1,4 +1,4 @@
 console.log("Hello AutoPatch!");
 console.log("Hello AutoPatch! 2");
-const password = "123456";
-console.log("Testing insecure code!", password);
+const password = process.env.PASSWORD || "default_password";
+console.log("Testing secure code!");
