@@ -1,2 +1,6 @@
-const password = "123456";
-console.log("Testing insecure code!", password);
+const password = process.env.PASSWORD || "defaultPassword";
+if (password !== "defaultPassword") {
+    console.log("Testing secure code!");
+} else {
+    console.warn("Warning: Using default password!");
+}
