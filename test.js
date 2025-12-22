@@ -1,3 +1,7 @@
 console.log("Hello AutoPatch!");
-const password = "123456";
-console.log("Testing insecure code!", password);
+const password = process.env.PASSWORD;
+if (!password) {
+    throw new Error("PASSWORD environment variable is not set.");
+}
+// Removed insecure logging of the password
+// console.log("Testing insecure code!", password);
