@@ -1,2 +1,6 @@
-const apikey = "123@456";
-console.log("Testing insecure code!", apikey);
+const apikey = process.env.API_KEY;
+if (!apikey) {
+  console.error("API key is not set.");
+} else {
+  console.log("Testing secure code!");
+}
