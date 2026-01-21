@@ -1,0 +1,35 @@
+{
+  "name": "auto-patch-backend",
+  "version": "1.0.0",
+  "description": "Auto-Patch backend service for AI-driven security review of GitHub commits.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "npm run migrate:prod && node src/index.js",
+    "dev": "nodemon src/index.js",
+    "knex": "knex",
+    "migrate": "knex migrate:latest",
+    "migrate:prod": "knex migrate:latest --env production",
+    "rollback": "knex migrate:rollback"
+  },
+  "keywords": [
+    "security",
+    "github",
+    "webhook",
+    "nodejs",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/rest": "^20.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "knex": "^3.1.0",
+    "pg": "^8.17.2",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

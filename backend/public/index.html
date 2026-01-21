@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Auto-Patch Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f4f5fb;
+      --card-bg: #ffffff;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --border: #e2e8f0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+    }
+
+    /* Toolbar Styling */
+    .toolbar {
+      display: flex;
+      gap: 1rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      margin-bottom: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-group select {
+      min-width: 350px;
+    }
+
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    select,
+    input {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    /* Summary Cards Styling */
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: #fff;
+      padding: 1.25rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-left: 5px solid var(--primary);
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .stat-card.blue {
+      border-left-color: #3b82f6;
+    }
+
+    .stat-card.red {
+      border-left-color: #ef4444;
+    }
+
+    .stat-card.green {
+      border-left-color: #10b981;
+    }
+
+    .stat-card.orange {
+      border-left-color: #f59e0b;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    /* Layout for Table and Chart */
+    .main-layout {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+
+
+    .table-section {
+      width: 100%;
+    }
+
+    .bottom-section {
+      display: flex;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    .chart-section {
+      flex: 1;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .contributors-section {
+      flex: 1;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-title,
+    .section-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: left;
+      font-size: 1rem;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f2ff;
+      font-weight: 600;
+    }
+
+    tr:hover td {
+      background: #fafbff;
+    }
+
+    .score-badge {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .score-good {
+      background: #16a34a;
+    }
+
+    .score-warn {
+      background: #f97316;
+    }
+
+    .score-bad {
+      background: #dc2626;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      background: #e5e7eb;
+      font-size: 0.75rem;
+    }
+
+    .issues-cell {
+      font-size: 0.85rem;
+      max-width: 520px;
+    }
+
+    .issues-muted {
+      color: #9ca3af;
+    }
+
+    .issue-line {
+      margin-bottom: 0.45rem;
+    }
+
+    .issue-meta {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: var(--primary);
+      color: #fff;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #4338ca;
+    }
+
+    a.expand-btn {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    a.expand-btn:hover {
+      text-decoration: underline;
+    }
+
+    .details-row td {
+      background: #fafbff;
+    }
+
+    /* Contributors List Styling */
+    .contributor-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .contributor-item:last-child {
+      border-bottom: none;
+    }
+
+    .contributor-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .contributor-issues {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 1024px) {
+      .bottom-section {
+        flex-direction: column;
+      }
+    }
+
+    .horizontal-layout {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+
+    .table-section.wide {
+      width: 80%;
+    }
+
+    .side-column {
+      width: 20%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .chart-section {
+      height: 280px;
+    }
+
+    .contributors-section {
+      max-height: 280px;
+    }
+
+    @media (max-width: 1100px) {
+      .horizontal-layout {
+        flex-direction: column;
+      }
+
+      .table-section.wide,
+      .side-column {
+        width: 100%;
+      }
+    }
+
+    .user-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .user-avatar {
+      cursor: pointer;
+    }
+
+    /* ضع هذا الكود داخل وسم <style> */
+
+    .tooltip-container {
+      position: relative;
+      display: inline-block;
+      cursor: help;
+    }
+
+    .tooltip-text {
+      visibility: hidden;
+      width: 220px;
+      background-color: #555;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -110px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 0.8rem;
+      font-weight: normal;
+    }
+
+    .tooltip-container:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header-row">
+    <h1>Auto-Patch Security Dashboard</h1>
+    <div style="display:flex; gap:0.5rem;">
+      <button id="syncBtn">🔄 Sync</button>
+      <button id="refreshBtn">Refresh Data</button>
+    </div>
+  </div>
+  <p style="margin-top: 0.25rem; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Monitoring security vulnerabilities across multiple repositories.
+  </p>
+
+  <!-- Toolbar with Filters -->
+  <div class="toolbar">
+    <div class="filter-group">
+      <label style="font-weight: 600; font-size: 0.9rem;">Filter by Repository:</label>
+      <select id="repoFilter">
+        <option value="all">All Repositories</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label style="font-weight: 600; font-size: 0.9rem;">Filter by User:</label>
+      <select id="userFilter">
+        <option value="all">All Users</option>
+      </select>
+    </div>
+    <div class="filter-group" style="margin-left: auto;">
+      <input type="text" id="searchInput" placeholder="Search by Commit ID...">
+    </div>
+  </div>
+
+  <!-- Summary Cards Section -->
+  <div class="stats-container">
+    <div class="stat-card blue">
+      <div class="stat-label">Total Analyses</div>
+      <div id="totalAnalyses" class="stat-value">0</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Issues Detected</div>
+      <div id="totalIssues" class="stat-value">0</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Auto Patches</div>
+      <div id="totalPRs" class="stat-value">0</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-label">Avg Security Score</div>
+      <div id="avgSecurityScore" class="stat-value">0%</div>
+    </div>
+  </div>
+
+  <div class="main-layout horizontal-layout">
+
+    <!-- TABLE (80%) -->
+    <div class="table-section wide">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Repository</th>
+            <th>Commit</th>
+            <th>Score</th>
+            <th>Issues</th>
+            <th>Auto-PR</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr>
+            <td colspan="7" style="text-align:center; padding: 2rem;">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- RIGHT SIDE (20%) -->
+    <div class="side-column">
+
+      <!-- Chart -->
+      <div class="chart-section">
+        <div class="chart-title">Severity Distribution</div>
+        <div style="flex: 1; position: relative;">
+          <canvas id="severityChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Contributors -->
+      <div class="contributors-section">
+        <div class="section-title">Top Contributors (Least Issues)</div>
+        <div id="contributorsList" style="overflow-y:auto;"></div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+    const tableBody = document.getElementById('tableBody');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const syncBtn = document.getElementById('syncBtn');
+    const repoFilter = document.getElementById('repoFilter');
+    const userFilter = document.getElementById('userFilter');
+    const searchInput = document.getElementById('searchInput');
+    const contributorsList = document.getElementById('contributorsList');
+
+    const totalAnalysesEl = document.getElementById('totalAnalyses');
+    const totalIssuesEl = document.getElementById('totalIssues');
+    const totalPRsEl = document.getElementById('totalPRs');
+    const avgSecurityScoreEl = document.getElementById('avgSecurityScore');
+
+    let allData = [];
+    let severityChart = null;
+
+    function scoreClass(score) {
+      if (score >= 85) return 'score-good';
+      if (score >= 60) return 'score-warn';
+      return 'score-bad';
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+    }
+
+    function buildIssuesHtml(issues) {
+      if (!issues || issues.length === 0) return `<div class="issues-muted">No issues</div>`;
+      return issues.map(i => `
+          <div class="issue-line">
+            <strong>[${escapeHtml((i.severity || 'info').toUpperCase())}]</strong> ${escapeHtml(i.title || 'Issue')}
+            <div class="issue-meta">(${escapeHtml(i.filePath || 'n/a')}:${escapeHtml(i.line || 'n/a')})</div>
+            <div style="font-size: 0.8rem; color: #4b5563; margin-top: 0.2rem;">${escapeHtml(i.description || '')}</div>
+          </div>
+        `).join('');
+    }
+
+    // في public/index.html
+
+    async function loadAnalyses() {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Refreshing...';
+      try {
+        const res = await fetch('/api/analyses');
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.statusText}`);
+
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid data format from server");
+        }
+
+        // لا حاجة لتجميع الكوميتات هنا، لأن الخادم يرجعها مجمعة
+        allData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // قم بتحديث الفلاتر أولاً
+        updateRepoFilter();
+        updateUserFilter();
+
+        // ثم قم بتطبيقها، وهذا سيؤدي إلى تحديث كل شيء آخر
+        applyFilters();
+
+      } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color: red;">Error loading data.</td></tr>';
+        // في حالة الخطأ، قم بتحديث الإحصائيات بمصفوفة فارغة
+        updateStats([]);
+        updateChart([]);
+        updateContributors([]);
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh Data';
+      }
+    }
+
+    async function syncData() {
+      const syncBtn = document.getElementById('syncBtn');
+      const repoFilter = document.getElementById('repoFilter');
+      const selectedRepo = repoFilter.value;
+
+      if (selectedRepo === 'all') {
+        alert('Please select a specific repository from the filter before syncing.');
+        return;
+      }
+
+      // الخطوة 1: عطّل الزر فوراً لمنع النقرات المزدوجة
+      syncBtn.disabled = true;
+      syncBtn.textContent = 'Syncing...';
+      // (اختياري) تعطيل الفلتر أيضاً أثناء المزامنة لمنع الارتباك
+      repoFilter.disabled = true;
+
+      try {
+        const [owner, repo] = selectedRepo.split('/');
+
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ owner, repo }),
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+          // إذا كان الخادم مشغولاً، أظهر رسالة مخصصة
+          if (res.status === 503 || (result.error && result.error.includes('already running'))) {
+            throw new Error('A sync process is already running. Please wait a moment and try again.');
+          }
+          throw new Error(result.error || 'Sync failed on the server');
+        }
+
+        // الخطوة 2: أظهر رسالة نجاح قبل تحديث الجدول
+        // هذا يعطي المستخدم شعوراً بالاستجابة الفورية
+        alert(result.message || 'Sync request received! Refreshing data...');
+
+        // الخطوة 3: قم بتحديث البيانات في الخلفية
+        await loadAnalyses();
+
+      } catch (err) {
+        // أظهر أي خطأ يحدث للمستخدم
+        alert(`Sync failed: ${err.message}`);
+        console.error('Sync Error:', err);
+      } finally {
+        // الخطوة 4: أعد تمكين الأزرار دائماً في النهاية
+        syncBtn.disabled = false;
+        syncBtn.textContent = '🔄 Sync';
+        repoFilter.disabled = false;
+      }
+    }
+
+    function updateRepoFilter() {
+      const repos = [...new Set(allData.map(d => d.repoFullName))].sort();
+      const current = repoFilter.value;
+      repoFilter.innerHTML = '<option value="all">All Repositories</option>';
+      repos.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r; opt.textContent = r;
+        repoFilter.appendChild(opt);
+      });
+      repoFilter.value = current;
+    }
+
+    function updateUserFilter() {
+      const users = [...new Set(allData.map(d => d.authorName || 'Unknown'))].sort();
+      const current = userFilter.value;
+      userFilter.innerHTML = '<option value="all">All Users</option>';
+      users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u; opt.textContent = u;
+        userFilter.appendChild(opt);
+      });
+      userFilter.value = current;
+    }
+
+
+    function applyFilters() {
+      const repo = repoFilter.value;
+      const user = userFilter.value;
+      const search = searchInput.value.toLowerCase();
+
+      // 1. قم بفلترة البيانات بناءً على اختيارات المستخدم
+      const filteredData = allData.filter(d => {
+        const matchesRepo = repo === 'all' || d.repoFullName === repo;
+        const matchesUser = user === 'all' || (d.authorName || 'Unknown') === user;
+        const matchesSearch = !search || (d.commitId && d.commitId.toLowerCase().includes(search));
+        return matchesRepo && matchesUser && matchesSearch;
+      });
+
+      // 2. قم بتمرير البيانات المفلترة إلى جميع دوال التحديث
+      renderTable(filteredData);
+      updateStats(filteredData);
+      updateChart(filteredData); // تأكد من استدعاء هذه الدالة هنا
+      updateContributors(filteredData); // تأكد من استدعاء هذه الدالة هنا
+    }
+
+    function renderTable(data) {
+      if (data.length === 0) {
+        tableBody.innerHTML =
+          '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No matching results.</td></tr>';
+        return;
+      }
+
+      let html = '';
+
+      data.forEach(d => {
+        let prCellHtml = '<span class="issues-muted">—</span>';
+
+        if (d.prUrl) {
+          prCellHtml = `<a href="${d.prUrl}" target="_blank">View PR</a>`;
+        } else {
+          const hasJsFile = (d.issues || []).some(
+            i => i.filePath && i.filePath.endsWith('.js')
+          );
+
+          if (!hasJsFile) {
+            prCellHtml = `
+          <span class="issues-muted"
+                title="Auto-PR not supported for non-JavaScript files">
+            Not Supported
+          </span>`;
+          } else if (d.overallScore > 80) {
+            prCellHtml = `
+          <span class="issues-muted"
+                title="Score is higher than 80, Auto-PR not required">
+            Skipped
+          </span>`;
+          }
+        }
+
+        const timeStr = new Date(d.createdAt).toLocaleString();
+        const shortCommit = d.commitId.slice(0, 7);
+        const issuesCount = d.issues ? d.issues.length : 0;
+        const detailId = `details-${d.id}`;
+
+        html += `
+      <tr>
+        <td style="color:var(--text-muted); font-size:0.8rem;">${timeStr}</td>
+        <td><span class="tag">${escapeHtml(d.repoFullName)}</span></td>
+        <td style="font-family:monospace; color:var(--text-muted);">${shortCommit}</td>
+        <td><span class="score-badge ${scoreClass(d.overallScore)}">${d.overallScore}</span></td>
+        <td style="color:var(--text-muted); font-size:0.85rem;">${issuesCount} issue(s)</td>
+        <td>${prCellHtml}</td>
+        <td><a class="expand-btn" data-target="${detailId}">Expand</a></td>
+      </tr>
+
+      <tr id="${detailId}" class="details-row" style="display:none">
+        <td colspan="7">
+          <div style="padding: 1rem;">
+            <div style="margin-bottom: 0.5rem;">
+              <strong>User:</strong> ${escapeHtml(d.authorName || 'Unknown')}
+            </div>
+            ${buildIssuesHtml(d.issues)}
+          </div>
+        </td>
+      </tr>
+    `;
+      });
+
+      tableBody.innerHTML = html;
+    }
+
+    function updateStats(data) {
+      let totalAnalyses = data.length;
+      let totalIssues = 0;
+      let totalPRs = 0;
+      let sumScores = 0;
+
+      data.forEach(item => {
+        totalIssues += (item.issues?.length || 0);
+        if (item.prUrl) totalPRs++;
+        sumScores += (item.overallScore || 0);
+      });
+      totalAnalysesEl.textContent = totalAnalyses;
+      totalIssuesEl.textContent = totalIssues;
+      totalPRsEl.textContent = totalPRs;
+      avgSecurityScoreEl.textContent = totalAnalyses > 0 ? `${Math.round(sumScores / totalAnalyses)}%` : '0%';
+    }
+
+    // في public/index.html داخل <script>
+
+    function updateChart(data) {
+      // 1. تعريف عدادات جديدة لتصنيف الكوميتات
+      const commitCounts = {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+        no_issues: 0 // <-- التصنيف الجديد
+      };
+
+      // 2. المرور على كل كوميت وتصنيفه
+      data.forEach(commit => {
+        const issues = commit.issues || [];
+        if (issues.length === 0) {
+          commitCounts.no_issues++;
+          return; // انتقل إلى الكوميت التالي
+        }
+
+        // ابحث عن أعلى مستوى خطورة في مشاكل الكوميت
+        let highestSeverity = 'info'; // القيمة الافتراضية
+        if (issues.some(i => i.severity === 'critical')) {
+          highestSeverity = 'critical';
+        } else if (issues.some(i => i.severity === 'high')) {
+          highestSeverity = 'high';
+        } else if (issues.some(i => i.severity === 'medium')) {
+          highestSeverity = 'medium';
+        } else if (issues.some(i => i.severity === 'low')) {
+          highestSeverity = 'low';
+        }
+
+        commitCounts[highestSeverity]++;
+      });
+
+      const chartCanvas = document.getElementById('severityChart');
+      const ctx = chartCanvas.getContext('2d');
+
+      // 3. تدمير الرسم البياني القديم
+      if (severityChart) {
+        severityChart.destroy();
+      }
+
+      // 4. تجهيز البيانات والإعدادات الجديدة
+      const chartData = {
+        // إضافة "No Issues" إلى التسميات
+        labels: ['Critical', 'High', 'Medium', 'Low', 'Info', 'No Issues'],
+        datasets: [{
+          data: [
+            commitCounts.critical,
+            commitCounts.high,
+            commitCounts.medium,
+            commitCounts.low,
+            commitCounts.info,
+            commitCounts.no_issues // <-- إضافة البيانات الجديدة
+          ],
+          // إضافة لون جديد لتصنيف "No Issues"
+          backgroundColor: [
+            '#991b1b', // Critical
+            '#ef4444', // High
+            '#f59e0b', // Medium
+            '#3b82f6', // Low
+            '#94a3b8', // Info
+            '#10b981'  // No Issues (أخضر زمردي)
+          ],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true, padding: 10, font: { size: 11 } }
+          },
+          // رسالة في المنتصف في حالة عدم وجود أي كوميتات على الإطلاق
+          title: {
+            display: data.length === 0, // اعرضها فقط إذا كانت البيانات فارغة
+            text: 'No data to display',
+            position: 'top',
+            align: 'center',
+            font: { size: 14 },
+            color: '#6b7280'
+          }
+        }
+      };
+
+      // 5. إنشاء الرسم البياني الجديد
+      severityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: chartData,
+        options: chartOptions
+      });
+    }
+
+    function updateContributors(data) {
+      const users = {};
+
+      data.forEach(d => {
+        const name = d.authorName || 'Unknown';
+
+        if (!users[name]) {
+          users[name] = {
+            name,
+            issues: 0,
+            avatar: d.authorAvatar || null
+          };
+        }
+
+        users[name].issues += (d.issues?.length || 0);
+
+        // لو الصورة كانت null وبعدين إجت
+        if (!users[name].avatar && d.authorAvatar) {
+          users[name].avatar = d.authorAvatar;
+        }
+      });
+
+      const sorted = Object.values(users).sort((a, b) => a.issues - b.issues);
+
+      contributorsList.innerHTML = sorted.map(u => `
+    <div class="contributor-item">
+      <div class="user-cell">
+        <img
+          class="user-avatar"
+          src="${u.avatar || ''}"
+          onclick="openReport('${escapeHtml(u.name)}')"
+          alt="${escapeHtml(u.name)}"
+        />
+        <span class="user-name">${escapeHtml(u.name)}</span>
+      </div>
+      <span class="contributor-issues">${u.issues} issue(s)</span>
+    </div>
+  `).join('') || `
+    <div style="padding:1rem; text-align:center; color:var(--text-muted);">
+      No contributors yet
+    </div>
+  `;
+    }
+
+
+    repoFilter.addEventListener('change', applyFilters);
+    userFilter.addEventListener('change', applyFilters);
+    searchInput.addEventListener('input', applyFilters);
+    refreshBtn.addEventListener('click', loadAnalyses);
+    syncBtn.addEventListener('click', syncData);
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.expand-btn');
+      if (!btn) return;
+      e.preventDefault();
+      const row = document.getElementById(btn.dataset.target);
+      const isOpen = row.style.display === 'table-row';
+      row.style.display = isOpen ? 'none' : 'table-row';
+      btn.textContent = isOpen ? 'Expand' : 'Collapse';
+    });
+
+    loadAnalyses();
+
+
+    function renderReport(data) {
+      // Destructure data for easier access
+      const { username, commitsCount, avgScore, report } = data.data;
+      const { summary, riskLevel, recommendations, topIssues, generatedAt } = report;
+
+      // Define colors for risk levels
+      const riskColors = {
+        low: { bg: '#ecfdf5', text: '#16a34a', label: 'Low' },
+        medium: { bg: '#fffbeb', text: '#f59e0b', label: 'Medium' },
+        high: { bg: '#fef2f2', text: '#ef4444', label: 'High' },
+        critical: { bg: '#fde2e2', text: '#dc2626', label: 'Critical' }
+      };
+      const color = riskColors[riskLevel] || riskColors.medium;
+
+      // Get user avatar from the contributors list
+      const avatarSrc = document.querySelector(`.user-avatar[alt="${escapeHtml(username)}"]`)?.src || 'https://i.pravatar.cc/150';
+
+      // Helper function to create a list
+      const renderItemsList = (title, items, icon) => {
+        if (!items || items.length === 0) return '';
+        return `
+      <div style="margin-top: 1rem;">
+        <h4 style="margin-bottom: 0.5rem; font-size: 1rem;">${icon} ${title}</h4>
+        <ul style="padding-left: 1.2rem; margin: 0; color: #4b5563; font-size: 0.9rem;">
+          ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+      };
+
+      // Build the full report HTML
+      return `
+    <div style="font-family: system-ui, sans-serif; color: #1f2937;">
+      
+      <!-- 1. User Info -->
+      <div style="display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem; margin-bottom: 1rem;">
+        <img src="${avatarSrc}" alt="User Avatar" style="width: 64px; height: 64px; border-radius: 50%;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.5rem;">${escapeHtml(username)}</h3>
+          <p style="margin: 0.25rem 0 0; color: #6b7280;">Personal Security Report</p>
+        </div>
+      </div>
+
+      <!-- 2. Performance Summary -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; margin-bottom: 1.5rem;">
+        <div>
+          <div style="font-size: 0.8rem; color: #6b7280;">Total Commits</div>
+          <div style="font-size: 1.75rem; font-weight: 700;">${commitsCount}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.8rem; color: #6b7280;">Average Score</div>
+          <div style="font-size: 1.75rem; font-weight: 700;">${avgScore}<span style="font-size:1rem;">/100</span></div>
+        </div>
+        <div>
+          <div style="font-size: 0.8rem; color: #6b7280;">Risk Level</div>
+          <div style="font-size: 1rem; font-weight: 600; color: ${color.text}; background: ${color.bg}; padding: 0.25rem 0.5rem; border-radius: 99px; margin-top: 0.25rem;">
+            ${color.label}
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Main Summary -->
+      <div style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <p style="margin: 0; line-height: 1.5;">${escapeHtml(summary)}</p>
+      </div>
+
+      <!-- 4. Recommendations & Issues -->
+      ${renderItemsList('📌 Recommendations for Improvement', recommendations, '📌')}
+      ${renderItemsList('🔥 Most Common Issues', topIssues, '🔥')}
+
+      <!-- 5. Footer Info -->
+      <div style="text-align: right; font-size: 0.8rem; color: #9ca3af; margin-top: 1.5rem;">
+        Report generated at: ${new Date(generatedAt).toLocaleString()}
+      </div>
+    </div>
+  `;
+    }
+
+    // 2. Ensure openReport uses English strings
+    function openReport(username) {
+      document.getElementById('userReportModal').style.display = 'block';
+      const reportContent = document.getElementById('reportContent');
+      const reportTitle = document.getElementById('reportTitle');
+
+      reportTitle.textContent = `Security Report for ${username}`;
+      reportContent.innerHTML = '<div style="text-align:center; padding: 2rem;">Generating report...</div>';
+
+      fetch(`/api/user-report?username=${encodeURIComponent(username)}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Network response was not ok');
+          return res.json();
+        })
+        .then(data => {
+          if (data.success) {
+            // Pass the entire data object to the render function
+            reportContent.innerHTML = renderReport(data);
+          } else {
+            throw new Error(data.message || 'Failed to get report data.');
+          }
+        })
+        .catch(err => {
+          console.error('Report generation failed:', err);
+          reportContent.innerHTML = '<div style="text-align:center; padding: 2rem; color: red;">Failed to load report. Please try again.</div>';
+        });
+    }
+
+    // 3. These functions remain the same
+    function closeReport() {
+      document.getElementById('userReportModal').style.display = 'none';
+    }
+    // ------------------- Start Copying Here -------------------
+    async function downloadPdf() {
+      const element = document.getElementById('reportContent');
+      if (!element) return;
+
+      try {
+        // 1️⃣ تصوير العنصر
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+
+        // 2️⃣ إنشاء PDF
+        const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        // 3️⃣ هوامش
+        const margin = 15; // mm
+        const usableWidth = pageWidth - margin * 2;
+
+        // 4️⃣ حساب الارتفاع مع الحفاظ على النسبة
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
+
+        // 5️⃣ توسيط أفقي + مسافة من الأعلى
+        const x = margin;
+        const y = margin;
+
+        // 6️⃣ إضافة الصورة
+        pdf.addImage(
+          imgData,
+          'PNG',
+          x,
+          y,
+          usableWidth,
+          imgHeight
+        );
+
+        // 7️⃣ تحميل
+        pdf.save('security-report.pdf');
+      } catch (err) {
+        console.error(err);
+        alert('Error generating PDF');
+      }
+    }
+
+
+
+    // ------------------- End Copying Here -------------------
+
+
+
+  </script>
+  <div id="userReportModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50;">
+    <div
+      style="background:#fff; max-width:700px; margin:5% auto; padding:1.5rem; border-radius:16px; max-height:80vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between;">
+        <h2 id="reportTitle">Security Report</h2>
+        <button onclick="closeReport()">✕</button>
+      </div>
+      <div id="reportContent">Loading...</div>
+      <button onclick="downloadPdf()" style="
+              margin-bottom:1rem;
+              padding:6px 12px;
+              border-radius:8px;
+              background:#111;
+              color:#fff;
+              border:none;
+              cursor:pointer;
+            ">
+        ⬇️ Download PDF
+      </button>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+
+</body>
+
+</html>
