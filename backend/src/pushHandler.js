@@ -1,7 +1,7 @@
 // src/pushHandler.js
 
 const { Octokit } = require('@octokit/rest');
-const { analyzeCommitWithAI } = require('./securityAnalysis');
+const { analyzeCommitWithAI, generatePatchesWithAI } = require('./securityAnalysis');
 const { analysisStore } = require('./store');
 
 // إعدادات أساسية
@@ -109,6 +109,7 @@ async function syncRepoCommits(owner, repo) {
 async function processCommitAndApplyFixes(owner, repo, commitId, defaultBranch) {
   const analysis = await analyzeSingleCommit(owner, repo, commitId);
 
+  console.log(`[Decision] score=${analysis?.overallScore}, threshold=${SECURITY_THRESHOLD}, patches=${analysis?.patches?.length || 0}`);
   if (analysis && analysis.overallScore < SECURITY_THRESHOLD && analysis.patches.length > 0) {
     console.log(`[Action] Score for ${commitId.slice(0, 7)} is ${analysis.overallScore}. Triggering PR process.`);
     await resetBranch(owner, repo, BOT_BRANCH, defaultBranch);
@@ -164,6 +165,17 @@ async function analyzeSingleCommit(owner, repo, commitId) {
 
     const analysis = await analyzeCommitWithAI({ owner, repo, commitId, files, author: realAuthor });
 
+    // لو في مشاكل والسكور منخفض بس ما طلع patches من التحليل الأول… جرّبي توليد patches بشكل منفصل
+    if (analysis.overallScore < SECURITY_THRESHOLD && (!analysis.patches || analysis.patches.length === 0)) {
+      const jsFiles = files.filter(f => f.path.endsWith('.js') || f.path.endsWith('.ts'));
+      if (jsFiles.length > 0 && analysis.issues && analysis.issues.length > 0) {
+        analysis.patches = await generatePatchesWithAI({
+          owner, repo, commitId,
+          files: jsFiles,
+          issues: analysis.issues,
+        });
+      }
+    }
     analysis.authorName = realAuthor.name;
     analysis.authorAvatar = realAuthor.avatar_url;
 
