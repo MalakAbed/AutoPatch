@@ -14,7 +14,6 @@ const { generateUserSecurityReport } = require('./securityAnalysis');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// ==================================================================
 // Middlewares - الترتيب هنا مهم جداً
 
 // 1. يجب وضع webhook router أولاً.
