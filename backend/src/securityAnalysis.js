@@ -1,3 +1,5 @@
+// src/securityAnalysis.js
+
 const crypto = require('crypto');
 
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
@@ -12,7 +14,7 @@ async function analyzeCommitWithAI({ owner, repo, commitId, files, author }) {
     commitId,
     files: files.map(f => ({
       path: f.path,
-      content: f.content.slice(0, 4000)
+      content: f.content.slice(0, 20000)
     }))
   };
 
@@ -38,6 +40,45 @@ async function analyzeCommitWithAI({ owner, repo, commitId, files, author }) {
   };
 }
 
+async function generatePatchesWithAI({ owner, repo, commitId, files, issues }) {
+  const payload = {
+    repository: `${owner}/${repo}`,
+    commitId,
+    issues,
+    files: files.map(f => ({
+      path: f.path,
+      content: f.content.slice(0, 20000),
+    })),
+  };
+
+  const prompt = `
+You are an expert Node.js security patch generator.
+
+You will receive a JSON object containing:
+- list of issues
+- list of files (path + content)
+
+Your task:
+- Produce patches ONLY for JavaScript/TypeScript files.
+- For each patch, output the FULL new content of the file (not a diff).
+- If a fix is not safe, skip it.
+
+RETURN JSON ONLY in this exact shape:
+{
+  "patches": [
+    { "filePath": "path/to/file.js", "patchedContent": "FULL file content" }
+  ]
+}
+
+Here is the input:
+${JSON.stringify(payload, null, 2)}
+`.trim();
+
+  const aiResponse = await callOpenAI(prompt);
+  const parsed = safeParseJson(aiResponse);
+
+  return Array.isArray(parsed.patches) ? parsed.patches : [];
+}
 
 // ✅ دالة جديدة لتوليد تقرير أمني للمستخدم
 async function generateUserSecurityReport(data) {
@@ -209,5 +250,6 @@ function clampNumber(value, min, max, fallback) {
 
 module.exports = {
   analyzeCommitWithAI,
+  generatePatchesWithAI,
   generateUserSecurityReport,
 };
