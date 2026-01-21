@@ -4,7 +4,7 @@ const { handlePushEvent } = require('./pushHandler');
 
 const router = express.Router();
 
-// Raw body parser ONLY for this router so we can verify GitHub signatures
+// Raw body parser ONLY for this router so we can verify GitHub signatures 
 router.use('/github', express.raw({ type: 'application/json' }));
 
 router.post('/github', async (req, res) => {
