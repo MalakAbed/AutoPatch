@@ -16,22 +16,27 @@ class AnalysisStore {
     const { issues, ...analysis } = analysisData;
 
     return db.transaction(async (trx) => {
-    const insertedIds = await trx('analyses').insert({
-      commitId: analysis.commitId,
-      repoFullName: analysis.repoFullName,
-      overallScore: analysis.overallScore,
-      authorName: analysis.authorName || 'Unknown',
-      authorAvatar: analysis.authorAvatar || null,
-      prUrl: analysis.prUrl || null,
-      // createdAt: new Date().toISOString(),
-    });
+      
+      // 1) Insert analysis and return ONLY id
+      const inserted = await trx('analyses')
+        .insert({
+          commitId: analysis.commitId,
+          repoFullName: analysis.repoFullName,
+          overallScore: analysis.overallScore,
+          authorName: analysis.authorName || 'Unknown',
+          authorAvatar: analysis.authorAvatar || null,
+          prUrl: analysis.prUrl || null,
+          createdAt: new Date().toISOString()
+        })
+        .returning('id');
 
-    // SQLite بيرجع رقم id مباشرة، Postgres بيرجع array ids حسب الإعداد
-    const insertedId = Array.isArray(insertedIds) ? insertedIds[0] : insertedIds;
+      // Handle knex/pg return shape: [{id: 1}] OR [1]
+      const analysisId = (typeof inserted[0] === 'object') ? inserted[0].id : inserted[0];
 
-    // هات السجل المُدرج (مضمون يشتغل على SQLite وPostgres)
-    const newAnalysis = await trx('analyses').where({ id: insertedId }).first();
+      // 2) Fetch the inserted row (clean object)
+      const newAnalysis = await trx('analyses').where({ id: analysisId }).first();
 
+      // 3) Insert issues
       if (issues && issues.length > 0) {
         const issuesToInsert = issues.map(issue => ({
           title: issue.title,
@@ -39,12 +44,12 @@ class AnalysisStore {
           description: issue.description,
           filePath: issue.filePath,
           line: issue.line,
-          analysis_id: newAnalysis.id,
+          analysis_id: analysisId,
         }));
         await trx('issues').insert(issuesToInsert);
       }
 
-      return { ...newAnalysis, issues };
+      return { ...newAnalysis, issues: issues || [] };
     });
   }
 
