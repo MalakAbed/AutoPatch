@@ -200,7 +200,7 @@ async function resetBranch(owner, repo, branchName, baseBranch) {
     await octokit.git.updateRef({ owner, repo, ref: `heads/${branchName}`, sha: baseRef.object.sha, force: true });
     console.log(`[Git] Branch reset complete.`);
   } catch (error) {
-    if (error.status === 404) {
+    if (error.status === 404 || error.status === 422) {
       await octokit.git.createRef({ owner, repo, ref: `refs/heads/${branchName}`, sha: baseRef.object.sha });
       console.log(`[Git] Branch did not exist. Created now.`);
     } else {
