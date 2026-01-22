@@ -16,6 +16,15 @@ const BOT_BRANCH = 'auto-patch'; // تعريف اسم فرع البوت في م�
 let isSyncing = false;
 
 // ==================================================================
+// ✅ Helper: توحيد اسم المؤلف لتفادي ظهور نفس الشخص باسمين (MalakAbed / Malak Abed)
+// ==================================================================
+function normalizeAuthorName(name) {
+  if (!name) return 'Unknown';
+  // يشيل المسافات ويوحد الشكل
+  return String(name).trim().replace(/\s+/g, '');
+}
+
+// ==================================================================
 // 1. الدوال الرئيسية التي يتم تصديرها (واجهة الملف)
 // ==================================================================
 
@@ -24,7 +33,7 @@ let isSyncing = false;
  */
 async function handlePushEvent(payload) {
   // الحل الحاسم: تجاهل أي دفعات (pushes) يقوم بها البوت بنفسه
-  if (payload.ref.includes(BOT_BRANCH)) {
+  if (payload.ref && payload.ref.includes(BOT_BRANCH)) {
     console.log(`[Webhook] Ignoring push event on bot branch '${BOT_BRANCH}'.`);
     return;
   }
@@ -110,6 +119,7 @@ async function processCommitAndApplyFixes(owner, repo, commitId, defaultBranch) 
   const analysis = await analyzeSingleCommit(owner, repo, commitId);
 
   console.log(`[Decision] score=${analysis?.overallScore}, threshold=${SECURITY_THRESHOLD}, patches=${analysis?.patches?.length || 0}`);
+
   if (analysis && analysis.overallScore < SECURITY_THRESHOLD && analysis.patches.length > 0) {
     console.log(`[Action] Score for ${commitId.slice(0, 7)} is ${analysis.overallScore}. Triggering PR process.`);
     await resetBranch(owner, repo, BOT_BRANCH, defaultBranch);
@@ -135,9 +145,14 @@ async function analyzeSingleCommit(owner, repo, commitId) {
 
     const { data: commitData } = await octokit.repos.getCommit({ owner, repo, ref: commitId });
 
-    // المصدر الوحيد للمؤلف: من بيانات الكوميت الرسمية
+    // ✅ المصدر الوحيد للمؤلف: من بيانات الكوميت الرسمية + توحيد الاسم
+    const authorRaw =
+      commitData.author?.login ||
+      commitData.commit?.author?.name ||
+      'Unknown';
+
     const realAuthor = {
-      name: commitData.author ? commitData.author.login : (commitData.commit.author ? commitData.commit.author.name : 'Unknown'),
+      name: normalizeAuthorName(authorRaw),
       avatar_url: commitData.author ? commitData.author.avatar_url : null
     };
 
@@ -176,14 +191,17 @@ async function analyzeSingleCommit(owner, repo, commitId) {
         });
       }
     }
+
+    // ✅ تأكيد تخزين الاسم الموحد
     analysis.authorName = realAuthor.name;
     analysis.authorAvatar = realAuthor.avatar_url;
 
     analysis.hasJavaScript = files.some(f => f.path.endsWith('.js'));
-    
+
     await analysisStore.add(analysis);
     console.log(`[Analysis] Commit ${commitId.slice(0, 7)} analyzed. Score: ${analysis.overallScore}`);
     return analysis;
+
   } catch (err) {
     console.error(`[Analysis-CRITICAL] Failed to analyze commit ${commitId.slice(0, 7)}:`, err.message);
     return null;
@@ -223,8 +241,11 @@ async function applyFixesAndCreatePR(owner, repo, baseBranch, analysis) {
       } catch (e) {
         if (e.status !== 404) throw e;
       }
+
       await octokit.repos.createOrUpdateFileContents({
-        owner, repo, path: patch.filePath,
+        owner,
+        repo,
+        path: patch.filePath,
         message: `[AutoPatch] Fix: ${patch.filePath} (from commit ${analysis.commitId.slice(0, 7)})`,
         content: Buffer.from(patch.patchedContent, "utf8").toString("base64"),
         branch: BOT_BRANCH,
@@ -232,7 +253,13 @@ async function applyFixesAndCreatePR(owner, repo, baseBranch, analysis) {
       });
     }
 
-    const { data: existingPRs } = await octokit.pulls.list({ owner, repo, state: 'open', head: `${owner}:${BOT_BRANCH}` });
+    const { data: existingPRs } = await octokit.pulls.list({
+      owner,
+      repo,
+      state: 'open',
+      head: `${owner}:${BOT_BRANCH}`
+    });
+
     if (existingPRs.length > 0) {
       console.log(`[PR] Existing PR #${existingPRs[0].number} updated.`);
       await analysisStore.attachPr(analysis.commitId, existingPRs[0].html_url);
@@ -240,13 +267,18 @@ async function applyFixesAndCreatePR(owner, repo, baseBranch, analysis) {
     }
 
     const { data: newPR } = await octokit.pulls.create({
-      owner, repo, title: `[AutoPatch] Automated Security Fixes`,
-      head: BOT_BRANCH, base: baseBranch,
+      owner,
+      repo,
+      title: `[AutoPatch] Automated Security Fixes`,
+      head: BOT_BRANCH,
+      base: baseBranch,
       body: `This PR contains automated security fixes. New fixes will be added automatically.`,
     });
+
     console.log(`[PR] New PR #${newPR.number} created.`);
     await analysisStore.attachPr(analysis.commitId, newPR.html_url);
     return newPR.html_url;
+
   } catch (err) {
     console.error(`[PR-CRITICAL] Failed during PR process for commit ${analysis.commitId.slice(0, 7)}:`, err.message);
     return null;
