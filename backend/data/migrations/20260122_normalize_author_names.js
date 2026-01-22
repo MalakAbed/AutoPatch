@@ -1,18 +1,16 @@
-// backend/data/migrations/20260122_normalize_author_names.js
-
 exports.up = async function (knex) {
   console.log('Normalizing author names in analyses table...');
 
-  await knex('analyses')
-    .whereNotNull('authorName')
-    .update({
-      authorName: knex.raw("REPLACE(authorName, ' ', '')")
-    });
+  // احذف كل المسافات (وحتى أي whitespace) من authorName
+  await knex.raw(`
+    UPDATE "analyses"
+    SET "authorName" = regexp_replace("authorName", '\\s+', '', 'g')
+    WHERE "authorName" IS NOT NULL;
+  `);
 
-  console.log('Author names normalization completed.');
+  console.log('Author names normalized successfully ✅');
 };
 
-exports.down = async function (knex) {
-  // لا نرجع التغيير لأن إزالة المسافات غير قابلة للعكس
-  console.log('Rollback skipped for author name normalization.');
+exports.down = async function () {
+  // ما بنرجّع القيم القديمة لأنها غير معروفة
 };
