@@ -5,8 +5,13 @@ const { analyzeCommitWithAI, generatePatchesWithAI } = require('./securityAnalys
 const { analysisStore } = require('./store');
 
 // إعدادات أساسية
+const GITHUB_ACCESS_TOKEN = process.env.GITHUB_ACCESS_TOKEN;
+if (!GITHUB_ACCESS_TOKEN) {
+  throw new Error('GITHUB_ACCESS_TOKEN is not set.');
+}
+
 const octokit = new Octokit({
-  auth: process.env.GITHUB_ACCESS_TOKEN,
+  auth: GITHUB_ACCESS_TOKEN,
   request: { timeout: 60000 },
   userAgent: 'auto-patch-bot',
 });
@@ -81,7 +86,9 @@ async function handlePushEvent(payload) {
   const commits = payload.commits || [];
 
   // عالج الكوميتات القادمة من الـ webhook بالتتابع
-  for (const commit of commits) {
+  const maxCommitsToProcess = 10; // Limit the number of commits processed
+  for (let i = 0; i < Math.min(commits.length, maxCommitsToProcess); i++) {
+    const commit = commits[i];
     if (commit.distinct === false) continue; // تجاهل merge commits
     await processCommitAndApplyFixes(owner, repo, commit.id, payload.repository.default_branch);
   }
