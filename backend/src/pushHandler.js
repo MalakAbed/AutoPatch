@@ -5,13 +5,22 @@ const { analyzeCommitWithAI, generatePatchesWithAI } = require('./securityAnalys
 const { analysisStore } = require('./store');
 
 // إعدادات أساسية
+const GITHUB_ACCESS_TOKEN = process.env.GITHUB_ACCESS_TOKEN;
+if (!GITHUB_ACCESS_TOKEN) {
+  throw new Error('GITHUB_ACCESS_TOKEN is not set.');
+}
+
 const octokit = new Octokit({
-  auth: process.env.GITHUB_ACCESS_TOKEN,
+  auth: GITHUB_ACCESS_TOKEN,
   request: { timeout: 60000 },
   userAgent: 'auto-patch-bot',
 });
 
 const SECURITY_THRESHOLD = Number(process.env.SECURITY_THRESHOLD || 80);
+if (isNaN(SECURITY_THRESHOLD) || SECURITY_THRESHOLD < 0 || SECURITY_THRESHOLD > 100) {
+  throw new Error('SECURITY_THRESHOLD must be a number between 0 and 100.');
+}
+
 const BOT_BRANCH = 'auto-patch'; // تعريف اسم فرع البوت في مكان واحد
 let isSyncing = false;
 
@@ -178,7 +187,8 @@ async function analyzeSingleCommit(owner, repo, commitId) {
 
     if (files.length === 0) return null;
 
-    const analysis = await analyzeCommitWithAI({ owner, repo, commitId, files, author: realAuthor });
+    const analysis = await analyzeCommitWithAI({
+      owner, repo, commitId, files, author: realAuthor });
 
     // لو في مشاكل والسكور منخفض بس ما طلع patches من التحليل الأول… جرّبي توليد patches بشكل منفصل
     if (analysis.overallScore < SECURITY_THRESHOLD && (!analysis.patches || analysis.patches.length === 0)) {
