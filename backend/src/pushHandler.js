@@ -60,6 +60,8 @@ function buildPrBody(owner, repo, analysis) {
     ``,
     issuesLines,
     ``,
+    `---`,
+    ``,
     `Please review the proposed changes carefully before merging this pull request.`,
   ].join('\n');
 }
