@@ -402,6 +402,61 @@
       visibility: visible;
       opacity: 1;
     }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      background: white;
+      cursor: pointer;
+      border-radius: 6px;
+      min-width: 35px;
+    }
+
+    .pagination button:hover {
+      border-color: #ffa116;
+    }
+
+    .active-page {
+      background-color: #ffa116;
+      color: white;
+      border-color: #ffa116;
+      font-weight: bold;
+
+    }
+
+    .dots {
+      padding: 0 6px;
+      color: #999;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button {
+      color: black !important;
+    }
+
+    .pagination button.active-page {
+      color: white;
+      border-color: #ffa116;
+      font-weight: 600;
+      box-shadow: 0 0 0 3px rgba(255, 161, 22, 0.3);
+    }
+
+    .page-numbers {
+      display: flex;
+      gap: 10px;
+    }
   </style>
 </head>
 
@@ -479,6 +534,14 @@
           </tr>
         </tbody>
       </table>
+      <div class="pagination">
+        <button id="prevPage">«</button>
+        <div id="pageNumbers" class="page-numbers"></div>
+        <button id="nextPage">»</button>
+      </div>
+
+
+
     </div>
 
     <!-- RIGHT SIDE (20%) -->
@@ -515,6 +578,10 @@
     const totalIssuesEl = document.getElementById('totalIssues');
     const totalPRsEl = document.getElementById('totalPRs');
     const avgSecurityScoreEl = document.getElementById('avgSecurityScore');
+
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let filteredDataGlobal = [];
 
     let allData = [];
     let severityChart = null;
@@ -664,19 +731,95 @@
       const user = userFilter.value;
       const search = searchInput.value.toLowerCase();
 
-      // 1. قم بفلترة البيانات بناءً على اختيارات المستخدم
-      const filteredData = allData.filter(d => {
+      filteredDataGlobal = allData.filter(d => {
         const matchesRepo = repo === 'all' || d.repoFullName === repo;
         const matchesUser = user === 'all' || (d.authorName || 'Unknown') === user;
         const matchesSearch = !search || (d.commitId && d.commitId.toLowerCase().includes(search));
         return matchesRepo && matchesUser && matchesSearch;
       });
 
-      // 2. قم بتمرير البيانات المفلترة إلى جميع دوال التحديث
-      renderTable(filteredData);
-      updateStats(filteredData);
-      updateChart(filteredData); // تأكد من استدعاء هذه الدالة هنا
-      updateContributors(filteredData); // تأكد من استدعاء هذه الدالة هنا
+      currentPage = 1; // العودة للصفحة الأولى عند تغيير الفلتر
+      updatePaginationDisplay();
+      updateStats(filteredDataGlobal);
+      updateChart(filteredDataGlobal);
+      updateContributors(filteredDataGlobal);
+    }
+    function updatePaginationDisplay() {
+      const totalPages = Math.ceil(filteredDataGlobal.length / itemsPerPage) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageData = filteredDataGlobal.slice(start, end);
+
+      renderTable(pageData);
+      renderPageNumbers(totalPages); // ← هاي الجديدة
+
+      document.getElementById('prevPage').disabled = (currentPage === 1);
+      document.getElementById('nextPage').disabled = (currentPage === totalPages);
+    }
+
+
+    function renderPageNumbers(totalPages) {
+      const container = document.getElementById("pageNumbers");
+      container.innerHTML = "";
+
+      const maxVisible = 5;
+
+      let startPage = Math.max(1, currentPage - 2);
+      let endPage = Math.min(totalPages, currentPage + 2);
+
+      if (currentPage <= 3) {
+        startPage = 1;
+        endPage = Math.min(totalPages, maxVisible);
+      }
+
+      if (currentPage >= totalPages - 2) {
+        startPage = Math.max(1, totalPages - maxVisible + 1);
+        endPage = totalPages;
+      }
+
+      if (startPage > 1) {
+        container.appendChild(createPageButton(1));
+        if (startPage > 2) {
+          container.appendChild(createDots());
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        container.appendChild(createPageButton(i));
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          container.appendChild(createDots());
+        }
+        container.appendChild(createPageButton(totalPages));
+      }
+    }
+
+    function createPageButton(page) {
+      const btn = document.createElement("button");
+      btn.textContent = page;
+
+      if (page === currentPage) {
+        btn.classList.add("active-page");
+      }
+
+      btn.addEventListener("click", () => {
+        currentPage = page;
+        updatePaginationDisplay();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      return btn;
+    }
+
+    function createDots() {
+      const span = document.createElement("span");
+      span.textContent = "...";
+      span.classList.add("dots");
+      return span;
     }
 
     function renderTable(data) {
@@ -906,7 +1049,22 @@
   `;
     }
 
+    document.getElementById('prevPage').addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        updatePaginationDisplay();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
 
+    document.getElementById('nextPage').addEventListener('click', () => {
+      const totalPages = Math.ceil(filteredDataGlobal.length / itemsPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        updatePaginationDisplay();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
     repoFilter.addEventListener('change', applyFilters);
     userFilter.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
