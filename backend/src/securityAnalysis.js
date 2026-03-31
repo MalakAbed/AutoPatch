@@ -19,35 +19,12 @@ async function analyzeCommitWithAI({ owner, repo, commitId, files, author }) {
   };
 
   let parsed = {};
-let aiWorked = true;
-
-try {
-  const aiResponse = await callOpenAI(buildPrompt(payload));
-
-  if (!aiResponse) {
-    aiWorked = false;
-  } else {
+  try {
+    const aiResponse = await callOpenAI(buildPrompt(payload));
     parsed = safeParseJson(aiResponse);
-
-    if (!parsed || Object.keys(parsed).length === 0) {
-      aiWorked = false;
-    }
+  } catch (err) {
+    console.error(err.message);
   }
-
-} catch (err) {
-  console.error("❌ AI failed:", err.message);
-  aiWorked = false;
-}
-
-// 🔥 fallback إذا AI فشل
-if (!aiWorked) {
-  console.log("⚠️ Using LOCAL security scan instead of AI");
-
-  const detectedIssues = basicSecurityScan(files);
-
-  const score = detectedIssues.length === 0
-    ? 90
-    : Math.max(30, 90 - detectedIssues.length * 20);
 
   return {
     id,
@@ -56,26 +33,11 @@ if (!aiWorked) {
     commitId,
     authorName: author?.name || 'Unknown',
     authorAvatar: author?.avatar_url || null,
-    overallScore: score,
-    issues: detectedIssues,
-    patches: [],
-    rawModelOutput: {}
+    overallScore: clampNumber(parsed.overall_score, 0, 100, 60),
+    issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+    patches: Array.isArray(parsed.patches) ? parsed.patches : [],
+    rawModelOutput: parsed
   };
-}
-
-// ✅ إذا AI اشتغل
-return {
-  id,
-  createdAt,
-  repoFullName: `${owner}/${repo}`,
-  commitId,
-  authorName: author?.name || 'Unknown',
-  authorAvatar: author?.avatar_url || null,
-  overallScore: clampNumber(parsed.overall_score, 0, 100, 60),
-  issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-  patches: Array.isArray(parsed.patches) ? parsed.patches : [],
-  rawModelOutput: parsed
-};
 }
 
 async function generatePatchesWithAI({ owner, repo, commitId, files, issues }) {
@@ -285,46 +247,7 @@ function clampNumber(value, min, max, fallback) {
   }
   return fallback;
 }
-function basicSecurityScan(files) {
-  const issues = [];
 
-  const patterns = [
-    {
-      regex: /password\s*=\s*["'][^"']+["']/gi,
-      title: "Hardcoded Password",
-      severity: "critical",
-      description: "Hardcoded password detected in code"
-    },
-    {
-      regex: /api[_-]?key\s*=\s*["'][^"']+["']/gi,
-      title: "Exposed API Key",
-      severity: "critical",
-      description: "API key exposed in source code"
-    },
-    {
-      regex: /token\s*=\s*["'][^"']+["']/gi,
-      title: "Hardcoded Token",
-      severity: "high",
-      description: "Authentication token hardcoded in code"
-    }
-  ];
-
-  files.forEach(file => {
-    patterns.forEach(pattern => {
-      if (pattern.regex.test(file.content)) {
-        issues.push({
-          title: pattern.title,
-          severity: pattern.severity,
-          description: pattern.description,
-          filePath: file.path,
-          line: 1 // بسيط حالياً
-        });
-      }
-    });
-  });
-
-  return issues;
-}
 module.exports = {
   analyzeCommitWithAI,
   generatePatchesWithAI,
