@@ -210,35 +210,7 @@ ${JSON.stringify(payload, null, 2)}
 `.trim();
 }
 
-async function callOpenAI(prompt) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set');
-  }
 
-  const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: 'You are a strict JSON-only responder.' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.2,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} ${text}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0].message.content;
 async function callOpenAI(prompt) {
   try {
     console.log("🚀 Calling OpenAI...");
