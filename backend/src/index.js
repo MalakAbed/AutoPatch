@@ -25,8 +25,6 @@ app.use('/webhook', githubWebhookRouter);
 app.use(cors());
 app.use(express.json());
 
-const password = "1234567";
-
 // مسارات الـ API
 
 app.get('/api/analyses', async (req, res) => {
