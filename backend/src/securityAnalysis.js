@@ -18,31 +18,13 @@ async function analyzeCommitWithAI({ owner, repo, commitId, files, author }) {
     }))
   };
 
-let parsed = {};
-try {
-  const aiResponse = await callOpenAI(buildPrompt(payload));
-
-  if (!aiResponse) {
-    console.log("⚠️ No AI response, using fallback");
-    return {
-      id,
-      createdAt,
-      repoFullName: `${owner}/${repo}`,
-      commitId,
-      authorName: author?.name || 'Unknown',
-      authorAvatar: author?.avatar_url || null,
-      overallScore: 60,
-      issues: [],
-      patches: [],
-      rawModelOutput: {}
-    };
+  let parsed = {};
+  try {
+    const aiResponse = await callOpenAI(buildPrompt(payload));
+    parsed = safeParseJson(aiResponse);
+  } catch (err) {
+    console.error(err.message);
   }
-
-  parsed = safeParseJson(aiResponse);
-
-} catch (err) {
-  console.error("❌ Analysis failed:", err.message);
-}
 
   return {
     id,
@@ -210,56 +192,36 @@ ${JSON.stringify(payload, null, 2)}
 `.trim();
 }
 
-
 async function callOpenAI(prompt) {
-  try {
-    console.log("🚀 Calling OpenAI...");
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not set');
-    }
-
-    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: 'You are a strict JSON-only responder.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.2,
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-
-      console.error("❌ OpenAI API FAILED:");
-      console.error("Status:", response.status);
-      console.error("Response:", text);
-
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-
-    console.log("✅ OpenAI Success");
-
-    return content;
-
-  } catch (error) {
-    console.error("🔥 OpenAI ERROR CAUGHT:");
-    console.error(error.message);
-    console.error(error);
-
-    return null; // مهم جدًا
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set');
   }
+
+  const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: 'You are a strict JSON-only responder.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  return content;
 }
 
 function safeParseJson(text) {
