@@ -7,7 +7,7 @@ const router = express.Router();
 // Raw body parser ONLY for this router so we can verify GitHub signatures
 router.use('/github', express.raw({ type: 'application/json' }));
 
-router.post('/github', async (req, res) => {
+router.post('/github', express.raw({ type: 'application/json' }), async (req, res) => {
   console.log("🔥 GitHub Webhook HIT");
 
   const signature = req.get('X-Hub-Signature-256');
