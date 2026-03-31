@@ -4,7 +4,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const password = "1234567";
 // استيراد وحدات التطبيق
 const { githubWebhookRouter } = require('./githubWebhook');
 const { analysisStore } = require('./store'); // يعتمد على store.js المحدث
@@ -26,6 +25,7 @@ app.use('/webhook', githubWebhookRouter);
 app.use(cors());
 app.use(express.json());
 
+const password = "1234567";
 
 // مسارات الـ API
 
