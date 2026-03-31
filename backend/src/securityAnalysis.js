@@ -156,6 +156,11 @@ Each file has a "path" and "content" string (up to ~4000 characters).
 Your job is to:
 1. Analyze the code for security vulnerabilities and risky patterns.
 2. Produce a numeric overall security score from 0 to 100 (higher is more secure).
+   - A score of 0-40 means critical/high vulnerabilities are present (hardcoded secrets, SQL injection, eval, etc.)
+   - A score of 41-60 means medium vulnerabilities exist
+   - A score of 61-80 means minor issues only
+   - A score of 81-100 means the code is clean and secure
+   - Be strict and accurate. Do NOT default to 60.
 3. List concrete issues found.
 4. For each issue that can be automatically fixed, produce a fully patched file.
 
